@@ -148,7 +148,7 @@ client.on('message', async message => {
 });
 
 function ckey(name) {
-	return name.replace(/ /g, '').toLowerCase();
+	return name.replace(/[ /.]/g, '').toLowerCase();
 }
 
 client.login(discordToken);
