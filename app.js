@@ -1,7 +1,6 @@
 "use strict";
 
 const Discord = require('discord.js');
-//const request = require('request-promise-native');
 const axios = require('axios');
 const cheerio = require('cheerio');
 
@@ -19,8 +18,8 @@ let lastGetRequest = new Date().getTime() - getRequestDelay;
 
 client.on('ready', () => {
 	if(mainChannelID.length) {
-		mainChannel = client.channels.get(mainChannelID);
-		mainChannel.send('HoP in the office!');
+		mainChannel = client.channels.cache.get(mainChannelID);
+		//mainChannel.send('HoP in the office!');
 	};
 });
 
@@ -31,19 +30,18 @@ client.on('message', async message => {
 	};
 
 	if(!(mainChannelID.length && message.channel.id === mainChannelID)) {
-		console.log('test');
 		return;
 	};
 
 	let command = message.content.toLowerCase().split(" ")[0];
 	let args = message.content.split(" ").slice(1);
 
-	if (command === '.ping') {
+/*	if (command === '.ping') {
 		return message.reply('pong');
-	};
+	};*/
 
 	if (command === '.help' || command === '.info') {
-		return message.reply('Use \`\`.verify %your byond%\`\` to start quest! You also should allow me to PM you.');;
+		return message.reply('Используйте \`\`.verify %Ваш Byond аккаунт%\`\` для верификации: вы будете переименованны в соответствии с вашим Byond-аккаунтом и получите плашку. Необходимо разрешить получение личных сообщений с этого дискорд сервера!');
 	};
 
 	if (command === ".verify") {
@@ -55,13 +53,13 @@ client.on('message', async message => {
 			return;
 		};
 
-		let client = message.guild.members.get(uid);
+		let client = message.guild.members.cache.get(uid);
 		let secret = Math.random().toString(36).substring(7);
 		let byondPofile = "http://www.byond.com/members/" + ckeyByond;
 
-		let pmMessage = `Good day! Your byond: **${byond}**, your secret key is: **${secret}**\n`
-		pmMessage += `Place this key in your Shoutbox on ${byondPofile}\n`
-		pmMessage += `After this is done send command \`\`.confirm\`\` in our verification channel **#${mainChannel.name}**`;
+		let pmMessage = `Доброго дня! Вы указали аккаунт: **${byond}**, ваш секретный ключ: **${secret}**\n`
+		pmMessage += `Разместите его в Shoutbox (комментариях) в вашем профиле Byond: ${byondPofile} (вы можете удалить этот комментарий после успешной верификации)\n`
+		pmMessage += `После этого вернитесь в наш канал **#${mainChannel.name}** и используйте команду \`\`.confirm\`\``;
 
 		//check if we alredy have this account in cache
 		let entry = pendingList.filter(entry => entry.uid === uid)[0];
@@ -83,15 +81,15 @@ client.on('message', async message => {
 			return;
 		};
 
-		let client = message.guild.members.get(uid);
+		let client = message.guild.members.cache.get(uid);
 		let entry = pendingList.filter(entry => entry.uid === uid)[0];
 		if(!entry) {
-			return message.reply('Sorry, I can\'t find you in list... Are you enrolled? Use \`\`.verify %your byond%\`\` first. You also should allow me to PM you.');
+			return message.reply('Не могу найти вас в списках. Вы уже запросили свой секретный ключ? Используйте \`\`.verify %Ваш Byond аккаунт%\`\`. Необходимо разрешить получение личных сообщений с этого дискорд сервера!');
 		};
 
 		let curTime = new Date().getTime();
 		if(lastGetRequest+getRequestDelay > curTime) {
-			return message.reply('Too many requests, wait some time.');
+			return message.reply('Много запросов, повторите позже.');
 		} else {
 			lastGetRequest = curTime;
 		};
@@ -100,11 +98,10 @@ client.on('message', async message => {
 		try {
 			response = await axios.get('http://www.byond.com/members/'+entry.ckeyByond);
 			if(response.status !== 200) {
-				throw "Site problem"
+				throw "Site problem";
 			};
 		} catch (error) {
-			console.log(error);
-			return message.reply('Something is broken, please try again later');
+			return message.reply('Что-то сломалось! Повторите позже.');
 		};
 
 		try {
@@ -117,7 +114,7 @@ client.on('message', async message => {
 			};
 			comments.each((index, el) => {
 				let comment = $(el);
-				if(ckey($('.shoutbox_comment_header a', comment).text()) === entry.ckeyByond) {
+				if(ckey($('.shoutbox_comment_header a:not(.shoutbox_comment_icon)', comment).text()) === entry.ckeyByond) {
 					let msgSecret = comment.text().replace(/\s\s+/g, ' ').trim().split(" ").slice(-1)[0];//fun
 					if(msgSecret === entry.secret) {
 						success = true;
@@ -125,25 +122,27 @@ client.on('message', async message => {
 					};
 				};
 
-				if(!success) {
-					throw "Secret not found";
-				};
 			});
-		} catch (error)	{
+
+			if(!success) {
+				throw "Secret not found";
+			};
+
+		} catch (error) {
 			console.log(error);
-			return message.reply('Sorry, I can\'t confirm your account. Check your secret code or request some help.');
+			return message.reply('Не могу подтвердить аккаунт! Проверьте ваш код и что он размещен в Shoutbox вашего профиля. Позовите администратора, если ошибка повторяется.');
 		};
 
 		try {
-			await client.guild.members.get(uid).setNickname(entry.byond);
-			let role = await message.guild.roles.find("name", verifiedGroup);
-			await client.guild.members.get(uid).addRole(role);
+			await client.guild.members.cache.get(uid).setNickname(entry.byond);
+			let role = await message.guild.roles.cache.find(role => role.name === verifiedGroup);
+			await client.guild.members.cache.get(uid).roles.add(role);
 		} catch (error) {
 			console.log(error);
-			return message.reply("Sorry, I can't give you a role/nickname. Perhaps you have more permissions than me.");
+			return message.reply("Не могу подтвердить аккаунт! Возможно, вы имеете больше прав.");
 		};
 
-		return message.reply(`Account ${entry.byond} verified, welcome!`);
+		return message.reply(`Аккаунт ${entry.byond} верифицирован, добро пожаловать!`);
 	};
 });
 
