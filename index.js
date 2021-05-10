@@ -7,7 +7,7 @@ const ctx = require('./src/context');
 const discordToken = process.env.DISCORD_TOKEN;
 const discordGuildId = process.env.DISCORD_GUILD_ID;
 const logsPath = process.env.LOGS_PATH || 'logs/hop.log';
-const verifiedGroup = process.env.VERIFIED_GROUP || 'Verified Byond';
+const verifiedGroup = process.env.VERIFIED_GROUP;
 
 verifyEnv('discordToken', discordToken);
 verifyEnv('discordGuildId', discordGuildId);
