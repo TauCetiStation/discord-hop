@@ -14,10 +14,16 @@ module.exports = async function (_, message) {
         return message.reply('Не могу найти вас в списках. Вы уже запросили свой секретный ключ? Используйте \`verify %Ваш BYOND-аккаунт%\`.');
     }
 
-    if (isValidSecret(user, await fetchByondMemeber(user))) {
-        return verifyUser(message, user);
-    } else {
-        return message.reply('Не могу подтвердить аккаунт! Проверьте ваш код и что он размещен в Shoutbox вашего профиля.');
+    try {
+        if (await isValidSecret(user, await fetchByondMemeber(user))) {
+            return verifyUser(message, user);
+        } else {
+            logger().info({ message: 'unverified user', user: user, })
+            return message.reply('Не могу подтвердить аккаунт! Проверьте ваш код и что он размещен в Shoutbox вашего профиля.');
+        }
+    } catch (e) {
+        logger().error(`unable to confirm user: ${JSON.stringify(user)}`, e);
+        return message.reply('Что-то пошло не так... Убедитесь, что ваша страница профиля BYOND доступна и у вас включен Shoutbox.')
     }
 }
 
@@ -65,17 +71,12 @@ async function verifyUser(message, user) {
         await member.setNickname(user.ckeyByond);
         await member.roles.add(role);
     } catch (e) {
-        logger().error({ message: 'unable to verify user', user: user }, e);
+        logger().error(`unable to verify user: ${JSON.stringify(user)}`, e);
         return message.reply("Не могу подтвердить аккаунт! Возможно, вы имеете больше прав.");
     }
 
     // No need to store user info.
     delete ctx.UsersPending[user.uid];
-    
-    logger().info({
-        message: 'user verified',
-        user: user,
-    })
-
+    logger().info({ message: 'user verified', user: user, })
     return message.reply(`Аккаунт **${user.ckeyByond}** верифицирован. Добро пожаловать!`);
 }
